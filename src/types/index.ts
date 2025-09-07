@@ -1,22 +1,22 @@
 export interface IUser {
-  _id: string;
   email: string;
+  phoneNumber: string;
   password: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   role: 'admin' | 'user';
   isActive: boolean;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
+  createdBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface IUserInput {
   email: string;
+  phoneNumber: string;
   password: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   role: 'admin' | 'user';
 }
 
@@ -41,8 +41,7 @@ export interface IAuthResponse {
   user?: {
     _id: string;
     email: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     role: string;
   };
 }

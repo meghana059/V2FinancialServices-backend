@@ -1,15 +1,16 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
 import { IApiResponse, IUserInput } from '../types';
+import { sendWelcomeEmail } from '../utils/email';
 
 export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password, firstName, lastName, role }: IUserInput = req.body;
+    console.log('Create user request body:', req.body);
+    const { email, phoneNumber, password, fullName, role }: IUserInput = req.body;
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
-    
-    if (existingUser) {
+    // Check if user already exists by email
+    const existingUserByEmail = await User.findOne({ email: email.toLowerCase() });
+    if (existingUserByEmail) {
       res.status(400).json({
         success: false,
         message: 'User with this email already exists'
@@ -17,28 +18,67 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
+    // Check if user already exists by phone number
+    const existingUserByPhone = await User.findOne({ phoneNumber });
+    if (existingUserByPhone) {
+      res.status(400).json({
+        success: false,
+        message: 'User with this phone number already exists'
+      } as IApiResponse);
+      return;
+    }
+
+    // Generate password if not provided
+    let finalPassword = password;
+    if (!finalPassword) {
+      // First 4 letters of name in caps
+      const namePart = fullName.length >= 4 
+        ? fullName.substring(0, 4).toUpperCase()
+        : (fullName.toUpperCase() + 'V').substring(0, 4);
+      
+      // Last 4 digits of phone number
+      const phonePart = phoneNumber.slice(-4);
+      finalPassword = namePart + phonePart;
+    }
+
     // Create new user
     const user = new User({
       email: email.toLowerCase(),
-      password,
-      firstName,
-      lastName,
-      role: role || 'user'
+      phoneNumber,
+      password: finalPassword,
+      fullName,
+      role: role || 'user',
+      createdBy: req.user?.email // Set the admin's email who created this user
     });
 
     await user.save();
+
+    // Send welcome email to the new user
+    try {
+      await sendWelcomeEmail(
+        user.email,
+        user.fullName,
+        finalPassword,
+        user.role
+      );
+      console.log(`Welcome email sent successfully to ${user.email}`);
+    } catch (emailError) {
+      console.error('Failed to send welcome email:', emailError);
+      // Don't fail the user creation if email fails, just log the error
+    }
 
     res.status(201).json({
       success: true,
       message: 'User created successfully',
       data: {
-        _id: user._id,
+        _id: (user._id as any).toString(),
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        phoneNumber: user.phoneNumber,
+        fullName: user.fullName,
         role: user.role,
         isActive: user.isActive,
-        createdAt: user.createdAt
+        createdAt: user.createdAt,
+        password: finalPassword // Return the password for display
       }
     } as IApiResponse);
   } catch (error) {
@@ -56,11 +96,20 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
 
-    const users = await User.find({})
+    // Get all users first, then sort them
+    const allUsers = await User.find({})
       .select('-password -resetPasswordToken -resetPasswordExpires')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+      .sort({ createdAt: -1 });
+
+    // Sort users with admins first
+    const sortedUsers = allUsers.sort((a, b) => {
+      if (a.role === 'admin' && b.role === 'user') return -1;
+      if (a.role === 'user' && b.role === 'admin') return 1;
+      return 0; // Keep original order for same roles
+    });
+
+    // Apply pagination
+    const users = sortedUsers.slice(skip, skip + limit);
 
     const total = await User.countDocuments({});
 
@@ -119,7 +168,9 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
 export const updateUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, role, isActive } = req.body;
+    const { fullName, email, phoneNumber, role, isActive } = req.body;
+    
+    console.log('Update user request:', { id, fullName, email, phoneNumber, role, isActive });
 
     const user = await User.findById(id);
 
@@ -132,21 +183,53 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
     }
 
     // Update fields
-    if (firstName) user.firstName = firstName;
-    if (lastName) user.lastName = lastName;
-    if (role) user.role = role;
-    if (typeof isActive === 'boolean') user.isActive = isActive;
+    console.log('Before update - User data:', {
+      fullName: user.fullName,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      isActive: user.isActive
+    });
+
+    if (fullName) {
+      console.log('Updating fullName from', user.fullName, 'to', fullName);
+      user.fullName = fullName;
+    }
+    if (email) {
+      console.log('Updating email from', user.email, 'to', email.toLowerCase());
+      user.email = email.toLowerCase();
+    }
+    if (phoneNumber) {
+      console.log('Updating phoneNumber from', user.phoneNumber, 'to', phoneNumber);
+      user.phoneNumber = phoneNumber;
+    }
+    if (role) {
+      console.log('Updating role from', user.role, 'to', role);
+      user.role = role;
+    }
+    if (typeof isActive === 'boolean') {
+      console.log('Updating isActive from', user.isActive, 'to', isActive);
+      user.isActive = isActive;
+    }
+
+    console.log('After update - User data:', {
+      fullName: user.fullName,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      isActive: user.isActive
+    });
 
     await user.save();
+    console.log('User saved successfully');
 
     res.status(200).json({
       success: true,
       message: 'User updated successfully',
       data: {
-        _id: user._id,
+        _id: (user._id as any).toString(),
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        fullName: user.fullName,
         role: user.role,
         isActive: user.isActive,
         updatedAt: user.updatedAt
@@ -166,7 +249,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
     const { id } = req.params;
 
     // Prevent admin from deleting themselves
-    if (req.user?._id.toString() === id) {
+    if (req.user && (req.user._id as any).toString() === id) {
       res.status(400).json({
         success: false,
         message: 'You cannot delete your own account'
@@ -184,14 +267,42 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    await User.findByIdAndDelete(id);
+    // Soft delete - set isActive to false
+    user.isActive = false;
+    await user.save();
 
     res.status(200).json({
       success: true,
-      message: 'User deleted successfully'
+      message: 'User deactivated successfully'
     } as IApiResponse);
   } catch (error) {
     console.error('Delete user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    } as IApiResponse);
+  }
+};
+
+export const getDashboardStats = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Count users by role
+    const adminCount = await User.countDocuments({ role: 'admin' });
+    const userCount = await User.countDocuments({ role: 'user' });
+
+    res.status(200).json({
+      success: true,
+      message: 'Dashboard stats retrieved successfully',
+      data: {
+        adminCount,
+        userCount,
+        // Placeholders for future data
+        portfolioValue: null,
+        monthlyGrowth: null
+      }
+    } as IApiResponse);
+  } catch (error) {
+    console.error('Get dashboard stats error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

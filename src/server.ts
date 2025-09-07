@@ -2,11 +2,14 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import connectDB from './config/database';
 import seedAdmin from './scripts/seed';
+import seedWorkflows from './scripts/seedWorkflows';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
+import featureRoutes from './routes/features';
 
 // Load environment variables
 dotenv.config();
@@ -40,6 +43,9 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Cookie parsing middleware
+app.use(cookieParser());
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -53,6 +59,7 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api', featureRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -81,6 +88,9 @@ const startServer = async (): Promise<void> => {
     
     // Seed admin user
     await seedAdmin();
+    
+    // Seed workflows
+    await seedWorkflows();
     
     // Start listening
     app.listen(PORT, () => {

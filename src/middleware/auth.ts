@@ -14,7 +14,8 @@ declare global {
 
 export const authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    // Try to get token from cookie first, then from Authorization header as fallback
+    const token = req.cookies.token || req.header('Authorization')?.replace('Bearer ', '');
     
     if (!token) {
       res.status(401).json({
@@ -24,7 +25,11 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as IJwtPayload;
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error('JWT_SECRET is not defined');
+    }
+    const decoded = (jwt as any).verify(token, secret) as IJwtPayload;
     const user = await User.findById(decoded.userId).select('-password');
     
     if (!user || !user.isActive) {

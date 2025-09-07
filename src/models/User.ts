@@ -10,27 +10,26 @@ const userSchema = new Schema<IUserDocument>({
   email: {
     type: String,
     required: [true, 'Email is required'],
-    unique: true,
     lowercase: true,
     trim: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+  },
+  phoneNumber: {
+    type: String,
+    required: [true, 'Phone number is required'],
+    trim: true,
+    match: [/^[\+]?[0-9][\d]{0,15}$/, 'Please enter a valid phone number']
   },
   password: {
     type: String,
     required: [true, 'Password is required'],
     minlength: [6, 'Password must be at least 6 characters long']
   },
-  firstName: {
+  fullName: {
     type: String,
-    required: [true, 'First name is required'],
+    required: [true, 'Full name is required'],
     trim: true,
-    maxlength: [50, 'First name cannot exceed 50 characters']
-  },
-  lastName: {
-    type: String,
-    required: [true, 'Last name is required'],
-    trim: true,
-    maxlength: [50, 'Last name cannot exceed 50 characters']
+    maxlength: [100, 'Full name cannot exceed 100 characters']
   },
   role: {
     type: String,
@@ -48,11 +47,16 @@ const userSchema = new Schema<IUserDocument>({
   resetPasswordExpires: {
     type: Date,
     default: undefined
+  },
+  createdBy: {
+    type: String,
+    required: false,
+    trim: true  
   }
 }, {
   timestamps: true,
   toJSON: {
-    transform: function(doc, ret) {
+    transform: function(doc, ret: any) {
       delete ret.password;
       delete ret.resetPasswordToken;
       delete ret.resetPasswordExpires;
@@ -80,7 +84,8 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
 };
 
 // Index for better performance
-userSchema.index({ email: 1 });
+userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ phoneNumber: 1 }, { unique: true });
 userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1 });
 

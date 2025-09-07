@@ -1,5 +1,5 @@
 import express from 'express';
-import { login, getProfile, requestPasswordReset, resetPassword } from '../controllers/authController';
+import { login, getProfile, requestPasswordReset, resetPassword, logout } from '../controllers/authController';
 import { authenticate } from '../middleware/auth';
 import { validateLogin, validateRequestPasswordReset, validatePasswordReset } from '../middleware/validation';
 
@@ -12,5 +12,6 @@ router.post('/reset-password', validatePasswordReset, resetPassword);
 
 // Protected routes
 router.get('/profile', authenticate, getProfile);
+router.post('/logout', authenticate, logout);
 
 export default router;

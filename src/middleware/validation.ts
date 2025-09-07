@@ -32,17 +32,15 @@ export const validateUserCreation = [
     .withMessage('Please provide a valid email'),
   body('password')
     .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
-  body('firstName')
+    .withMessage('Password must be at least 6 characters long'),
+  body('fullName')
     .trim()
-    .isLength({ min: 2, max: 50 })
-    .withMessage('First name must be between 2 and 50 characters'),
-  body('lastName')
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Full name must be between 2 and 100 characters'),
+  body('phoneNumber')
     .trim()
-    .isLength({ min: 2, max: 50 })
-    .withMessage('Last name must be between 2 and 50 characters'),
+    .isLength({ min: 10, max: 15 })
+    .withMessage('Phone number must be between 10 and 15 characters'),
   body('role')
     .isIn(['admin', 'user'])
     .withMessage('Role must be either admin or user'),
@@ -63,5 +61,32 @@ export const validateRequestPasswordReset = [
     .isEmail()
     .normalizeEmail()
     .withMessage('Please provide a valid email'),
+  handleValidationErrors
+];
+
+export const validateUserUpdate = [
+  body('email')
+    .optional()
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please provide a valid email'),
+  body('fullName')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Full name must be between 2 and 100 characters'),
+  body('phoneNumber')
+    .optional()
+    .trim()
+    .isLength({ min: 10, max: 15 })
+    .withMessage('Phone number must be between 10 and 15 characters'),
+  body('role')
+    .optional()
+    .isIn(['admin', 'user'])
+    .withMessage('Role must be either admin or user'),
+  body('isActive')
+    .optional()
+    .isBoolean()
+    .withMessage('isActive must be a boolean value'),
   handleValidationErrors
 ];

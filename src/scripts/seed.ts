@@ -11,13 +11,13 @@ const seedAdmin = async (): Promise<void> => {
     await connectDB();
 
     const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPhoneNumber = process.env.ADMIN_PHONE_NUMBER || '+1234567890';
     const adminPassword = process.env.ADMIN_PASSWORD;
-    const adminFirstName = process.env.ADMIN_FIRST_NAME;
-    const adminLastName = process.env.ADMIN_LAST_NAME;
+    const adminFullName = process.env.ADMIN_FULL_NAME || 'Admin User';
 
-    if (!adminEmail || !adminPassword || !adminFirstName || !adminLastName) {
+    if (!adminEmail || !adminPassword) {
       console.error('❌ Missing required environment variables for admin seeding');
-      console.error('Required: ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_FIRST_NAME, ADMIN_LAST_NAME');
+      console.error('Required: ADMIN_EMAIL, ADMIN_PASSWORD');
       process.exit(1);
     }
 
@@ -27,8 +27,7 @@ const seedAdmin = async (): Promise<void> => {
     if (existingAdmin) {
       console.log('✅ Admin user already exists:', {
         email: existingAdmin.email,
-        firstName: existingAdmin.firstName,
-        lastName: existingAdmin.lastName,
+        fullName: existingAdmin.fullName,
         role: existingAdmin.role
       });
       return;
@@ -37,9 +36,9 @@ const seedAdmin = async (): Promise<void> => {
     // Create admin user
     const admin = new User({
       email: adminEmail.toLowerCase(),
+      phoneNumber: adminPhoneNumber,
       password: adminPassword,
-      firstName: adminFirstName,
-      lastName: adminLastName,
+      fullName: adminFullName,
       role: 'admin'
     });
 
@@ -47,10 +46,9 @@ const seedAdmin = async (): Promise<void> => {
 
     console.log('✅ Admin user created successfully:', {
       email: admin.email,
-      firstName: admin.firstName,
-      lastName: admin.lastName,
+      fullName: admin.fullName,
       role: admin.role,
-      id: admin._id
+      id: (admin._id as any).toString()
     });
 
   } catch (error) {

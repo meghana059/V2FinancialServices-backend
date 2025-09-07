@@ -2,13 +2,18 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/User';
-import { sendPasswordResetEmail } from '../utils/email';
+import { sendPasswordResetEmail, sendPasswordUpdateNotificationToAdmin } from '../utils/email';
 import { IAuthResponse, IApiResponse } from '../types';
 
 const generateToken = (userId: string): string => {
-  return jwt.sign(
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET is not defined');
+  }
+  
+  return (jwt as any).sign(
     { userId },
-    process.env.JWT_SECRET!,
+    secret,
     { expiresIn: process.env.JWT_EXPIRE || '7d' }
   );
 };
@@ -49,17 +54,26 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Generate token
-    const token = generateToken(user._id);
+    const token = generateToken((user._id as any).toString());
+
+    // Set JWT in HTTP-only cookie
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict' as const,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/'
+    };
+
+    res.cookie('token', token, cookieOptions);
 
     res.status(200).json({
       success: true,
       message: 'Login successful',
-      token,
       user: {
-        _id: user._id,
+        _id: (user._id as any).toString(),
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        fullName: user.fullName,
         role: user.role
       }
     } as IAuthResponse);
@@ -80,12 +94,14 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
       success: true,
       message: 'Profile retrieved successfully',
       data: {
-        _id: user!._id,
+        _id: (user!._id as any).toString(),
         email: user!.email,
-        firstName: user!.firstName,
-        lastName: user!.lastName,
+        fullName: user!.fullName,
+        phoneNumber: user!.phoneNumber,
         role: user!.role,
-        createdAt: user!.createdAt
+        isActive: user!.isActive,
+        createdAt: user!.createdAt,
+        updatedAt: user!.updatedAt
       }
     } as IApiResponse);
   } catch (error) {
@@ -161,12 +177,46 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     user.resetPasswordExpires = undefined;
     await user.save();
 
+    // Send notification to admin who created this user (if createdBy exists)
+    if (user.createdBy) {
+      try {
+        await sendPasswordUpdateNotificationToAdmin(user.createdBy, user.email, user.fullName);
+        console.log(`Admin notification sent for password update: ${user.email}`);
+      } catch (error) {
+        // Don't fail the password reset if admin notification fails
+        console.error('Failed to send admin notification for password update:', error);
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: 'Password reset successful'
     } as IApiResponse);
   } catch (error) {
     console.error('Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    } as IApiResponse);
+  }
+};
+
+export const logout = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Clear the JWT cookie
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/'
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Logout successful'
+    } as IApiResponse);
+  } catch (error) {
+    console.error('Logout error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'
