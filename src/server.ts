@@ -4,12 +4,16 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import connectDB from './config/database';
 import seedAdmin from './scripts/seed';
 import seedWorkflows from './scripts/seedWorkflows';
+import seedInvoiceTemplates from './scripts/seedInvoiceTemplates';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import featureRoutes from './routes/features';
+import invoiceRoutes from './routes/invoices';
+import twoFactorRoutes from './routes/twoFactor';
 
 // Load environment variables
 dotenv.config();
@@ -20,14 +24,16 @@ const PORT = process.env.PORT || 5000;
 // Security middleware
 app.use(helmet());
 
-// Rate limiting
+// Rate limiting - more lenient for development
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: process.env.NODE_ENV === 'development' ? 1000 : 100, // More requests allowed in development
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.'
-  }
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use(limiter);
 
@@ -48,18 +54,43 @@ app.use(cookieParser());
 
 // Health check endpoint
 app.get('/health', (req, res) => {
+  const dbStatus = {
+    connected: mongoose.connection.readyState === 1,
+    readyState: mongoose.connection.readyState,
+    host: mongoose.connection.host,
+    name: mongoose.connection.name
+  };
+  
   res.status(200).json({
     success: true,
     message: 'V2 Financial Group API is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    database: dbStatus
   });
+});
+
+// 2FA endpoints (no auth required) - must be before other 2FA routes
+app.post('/api/2fa/setup', (req, res) => {
+  console.log('🔍 Direct setup route hit with body:', req.body);
+  // Import and call the controller directly
+  const { TwoFactorController } = require('./controllers/twoFactorController');
+  TwoFactorController.setupTwoFactorDuringLogin(req, res);
+});
+
+app.post('/api/2fa/verify', (req, res) => {
+  console.log('🔍 Direct verify route hit with body:', req.body);
+  // Import and call the controller directly
+  const { TwoFactorController } = require('./controllers/twoFactorController');
+  TwoFactorController.verifyTwoFactorLogin(req, res);
 });
 
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api', featureRoutes);
+app.use('/api/invoices', invoiceRoutes);
+app.use('/api/2fa', twoFactorRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -91,6 +122,9 @@ const startServer = async (): Promise<void> => {
     
     // Seed workflows
     await seedWorkflows();
+    
+    // Seed invoice templates
+    await seedInvoiceTemplates();
     
     // Start listening
     app.listen(PORT, () => {

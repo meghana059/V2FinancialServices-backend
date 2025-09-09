@@ -23,10 +23,10 @@ const defaultWorkflows = [
   {
     imgPath: '/icons/invoice.svg',
     label: 'Invoice Generation',
-    frontendRoute: '/invoice',
+    frontendRoute: '/admin/invoice-generation',
     accessibleTo: 'admin' as const,
     isAvailable: true,
-    description: 'Create and manage client invoices'
+    description: 'Generate performance fee invoices from Excel data'
   },
   {
     imgPath: '/icons/crm.svg',

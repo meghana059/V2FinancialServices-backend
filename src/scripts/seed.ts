@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import connectDB from '../config/database';
 import User from '../models/User';
+import { TwoFactorService } from '../services/twoFactorService';
+import { sendWelcomeEmail } from '../utils/email';
 
 // Load environment variables
 dotenv.config();
@@ -44,12 +46,37 @@ const seedAdmin = async (): Promise<void> => {
 
     await admin.save();
 
+    // Generate 2FA setup for admin
+    const twoFactorSecret = TwoFactorService.generateSecret(admin);
+    const qrCodeUrl = await TwoFactorService.generateQRCode(twoFactorSecret, admin);
+    const backupCodes = TwoFactorService.generateBackupCodes();
+
+    // Save 2FA secret and backup codes (mandatory for all users)
+    admin.twoFactorSecret = twoFactorSecret;
+    admin.twoFactorBackupCodes = backupCodes;
+    await admin.save();
+
     console.log('✅ Admin user created successfully:', {
       email: admin.email,
       fullName: admin.fullName,
       role: admin.role,
       id: (admin._id as any).toString()
     });
+
+    console.log('\n🔐 2FA Setup Information:');
+    console.log('Secret:', twoFactorSecret);
+    console.log('QR Code URL:', qrCodeUrl);
+    console.log('Backup Codes:', backupCodes);
+    console.log('\n⚠️  IMPORTANT: Admin must set up 2FA on first login!');
+
+    // Send welcome email to admin
+    try {
+      await sendWelcomeEmail(admin.email, admin.fullName, adminPassword, admin.role);
+      console.log('\n📧 Welcome email sent to admin successfully!');
+    } catch (error) {
+      console.error('❌ Failed to send welcome email to admin:', error);
+      // Don't exit the process, just log the error
+    }
 
   } catch (error) {
     console.error('❌ Error seeding admin user:', error);

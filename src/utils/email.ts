@@ -1,24 +1,27 @@
 import nodemailer from 'nodemailer';
 
 const createTransporter = () => {
+  // Use Gmail with working credentials
+  console.log('Using Gmail SMTP for email sending');
   return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT || '587'),
-    secure: false, // true for 465, false for other ports
+    service: 'gmail',
     auth: {
-      user: process.env.EMAIL_FROM,
-      pass: process.env.EMAIL_PASS,
+      user: 'engmeghana@gmail.com',
+      pass: 'bcqrnqpghfesdtou',
     },
+    tls: {
+      rejectUnauthorized: false
+    }
   });
 };
 
 export const sendPasswordResetEmail = async (email: string, resetToken: string): Promise<void> => {
   const transporter = createTransporter();
   
-  const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+  const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
   
   const mailOptions = {
-    from: process.env.EMAIL_FROM,
+    from: 'engmeghana@gmail.com',
     to: email,
     subject: 'V2 Financial Group - Password Reset Request',
     html: `
@@ -82,7 +85,7 @@ export const sendPasswordUpdateNotificationToAdmin = async (
   const transporter = createTransporter();
   
   const mailOptions = {
-    from: process.env.EMAIL_FROM,
+    from: 'engmeghana@gmail.com',
     to: adminEmail,
     subject: 'V2 Financial Group - User Password Updated',
     html: `
@@ -150,7 +153,7 @@ export const sendWelcomeEmail = async (
   const loginUrl = `${process.env.FRONTEND_URL}/login`;
   
   const mailOptions = {
-    from: process.env.EMAIL_FROM,
+    from: 'engmeghana@gmail.com',
     to: email,
     subject: 'Welcome to V2 Financial Group - Your Account is Ready!',
     html: `
@@ -188,13 +191,52 @@ export const sendWelcomeEmail = async (
           </a>
         </div>
         
+        <div style="background-color: #FFF3CD; border: 1px solid #FFEAA7; padding: 20px; border-radius: 5px; margin: 20px 0;">
+          <h4 style="color: #856404; margin: 0 0 15px 0;">🔐 IMPORTANT: Two-Factor Authentication Required</h4>
+          <p style="color: #856404; margin: 0 0 15px 0; font-weight: bold;">
+            For your security, you MUST set up Two-Factor Authentication (2FA) on your first login.
+          </p>
+          
+          <div style="background-color: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+            <h5 style="color: #2C3E50; margin: 0 0 10px 0;">📱 Step 1: Download an Authenticator App</h5>
+            <p style="color: #34495E; margin: 0 0 10px 0; font-size: 14px;">
+              Download one of these apps on your phone before logging in:
+            </p>
+            <ul style="color: #34495E; margin: 0; padding-left: 20px; font-size: 14px;">
+              <li><strong>Google Authenticator:</strong> <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" style="color: #D4AF37;">Android</a> | <a href="https://apps.apple.com/app/google-authenticator/id388497605" style="color: #D4AF37;">iOS</a></li>
+              <li><strong>Microsoft Authenticator:</strong> <a href="https://play.google.com/store/apps/details?id=com.azure.authenticator" style="color: #D4AF37;">Android</a> | <a href="https://apps.apple.com/app/microsoft-authenticator/id983156458" style="color: #D4AF37;">iOS</a></li>
+              <li><strong>Authy:</strong> <a href="https://play.google.com/store/apps/details?id=com.authy.authy" style="color: #D4AF37;">Android</a> | <a href="https://apps.apple.com/app/authy/id494168017" style="color: #D4AF37;">iOS</a></li>
+            </ul>
+          </div>
+          
+          <div style="background-color: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+            <h5 style="color: #2C3E50; margin: 0 0 10px 0;">🔑 Step 2: Login and Set Up 2FA</h5>
+            <p style="color: #34495E; margin: 0 0 10px 0; font-size: 14px;">
+              When you login for the first time, you'll be prompted to set up 2FA:
+            </p>
+            <ol style="color: #34495E; margin: 0; padding-left: 20px; font-size: 14px;">
+              <li>Scan the QR code with your authenticator app</li>
+              <li>Enter the 6-digit code to verify setup</li>
+              <li>Save the backup codes provided</li>
+              <li>Complete the setup process</li>
+            </ol>
+          </div>
+          
+          <div style="background-color: #F8D7DA; border: 1px solid #F5C6CB; padding: 10px; border-radius: 5px; margin: 10px 0;">
+            <p style="color: #721C24; margin: 0; font-size: 14px; font-weight: bold;">
+              ⚠️ Pro Tip: If you don't have an authenticator app ready, you can still login and we'll guide you through the setup process!
+            </p>
+          </div>
+        </div>
+        
         <div style="background-color: #E8F5E8; border: 1px solid #C3E6C3; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <h4 style="color: #2D5A2D; margin: 0 0 10px 0;">🔐 Security Recommendations:</h4>
+          <h4 style="color: #2D5A2D; margin: 0 0 10px 0;">🔐 Additional Security Recommendations:</h4>
           <ul style="color: #2D5A2D; margin: 0; padding-left: 20px;">
             <li>Change your password after your first login</li>
             <li>Use a strong, unique password</li>
             <li>Never share your login credentials</li>
             <li>Log out when using shared computers</li>
+            <li>Keep your backup codes in a safe place</li>
           </ul>
         </div>
         

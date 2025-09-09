@@ -52,6 +52,19 @@ const userSchema = new Schema<IUserDocument>({
     type: String,
     required: false,
     trim: true  
+  },
+  twoFactorSecret: {
+    type: String,
+    default: undefined
+  },
+  twoFactorBackupCodes: [{
+    type: String
+
+
+}],
+  twoFactorSetupCompleted: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true,
@@ -60,6 +73,8 @@ const userSchema = new Schema<IUserDocument>({
       delete ret.password;
       delete ret.resetPasswordToken;
       delete ret.resetPasswordExpires;
+      delete ret.twoFactorSecret;
+      delete ret.twoFactorBackupCodes;
       return ret;
     }
   }

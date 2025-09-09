@@ -1,29 +1,40 @@
 import { Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/User';
 import { sendPasswordResetEmail, sendPasswordUpdateNotificationToAdmin } from '../utils/email';
 import { IAuthResponse, IApiResponse } from '../types';
-
-const generateToken = (userId: string): string => {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error('JWT_SECRET is not defined');
-  }
-  
-  return (jwt as any).sign(
-    { userId },
-    secret,
-    { expiresIn: process.env.JWT_EXPIRE || '7d' }
-  );
-};
+import { TwoFactorService } from '../services/twoFactorService';
+import { generateToken } from '../utils/jwt';
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
-    // Find user by email
-    const user = await User.findOne({ email: email.toLowerCase() });
+    // Find user by email with retry mechanism
+    let user;
+    let retries = 0;
+    const maxRetries = 3;
+    
+    while (retries < maxRetries) {
+      try {
+        user = await User.findOne({ email: email.toLowerCase() });
+        break; // Success, exit retry loop
+      } catch (dbError) {
+        retries++;
+        console.error(`Database error during login (attempt ${retries}):`, dbError);
+        
+        if (retries >= maxRetries) {
+          res.status(503).json({
+            success: false,
+            message: 'Database connection issue. Please try again.'
+          } as IAuthResponse);
+          return;
+        }
+        
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+      }
+    }
     
     if (!user) {
       res.status(401).json({
@@ -53,30 +64,17 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Generate token
-    const token = generateToken((user._id as any).toString());
-
-    // Set JWT in HTTP-only cookie
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict' as const,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      path: '/'
-    };
-
-    res.cookie('token', token, cookieOptions);
-
+    // 2FA is MANDATORY for all users - always require it
+    // Generate temporary 2FA token
+    const twoFactorToken = TwoFactorService.generateTwoFactorToken((user._id as any).toString());
+    
     res.status(200).json({
       success: true,
-      message: 'Login successful',
-      user: {
-        _id: (user._id as any).toString(),
-        email: user.email,
-        fullName: user.fullName,
-        role: user.role
-      }
+      message: 'Two-factor authentication required',
+      requiresTwoFactor: true,
+      twoFactorToken
     } as IAuthResponse);
+    return;
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({
@@ -155,15 +153,31 @@ export const requestPasswordReset = async (req: Request, res: Response): Promise
 
 export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { token, password } = req.body;
+    const { token, email, newPassword } = req.body;
+    
+    console.log('🔍 resetPassword called with:', {
+      token: token?.substring(0, 20) + '...',
+      email: email,
+      newPasswordLength: newPassword?.length
+    });
 
-    // Find user by reset token
+    // Find user by reset token and email
     const user = await User.findOne({
+      email: email.toLowerCase(),
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: new Date() }
     });
 
+    console.log('🔍 User lookup result:', {
+      userFound: !!user,
+      userEmail: user?.email,
+      userResetToken: user?.resetPasswordToken?.substring(0, 20) + '...',
+      userResetExpires: user?.resetPasswordExpires,
+      currentTime: new Date()
+    });
+
     if (!user) {
+      console.log('❌ No user found with matching token and email');
       res.status(400).json({
         success: false,
         message: 'Invalid or expired reset token'
@@ -172,7 +186,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     }
 
     // Update password
-    user.password = password;
+    user.password = newPassword;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
@@ -190,7 +204,13 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
 
     res.status(200).json({
       success: true,
-      message: 'Password reset successful'
+      message: 'Password updated successfully',
+      user: {
+        _id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role
+      }
     } as IApiResponse);
   } catch (error) {
     console.error('Reset password error:', error);

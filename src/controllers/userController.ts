@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import User from '../models/User';
 import { IApiResponse, IUserInput } from '../types';
 import { sendWelcomeEmail } from '../utils/email';
+import { TwoFactorService } from '../services/twoFactorService';
 
 export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -51,6 +52,14 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       createdBy: req.user?.email // Set the admin's email who created this user
     });
 
+    // Generate 2FA setup for new user (mandatory for all users)
+    const twoFactorSecret = TwoFactorService.generateSecret(user);
+    const backupCodes = TwoFactorService.generateBackupCodes();
+    
+    // Set 2FA setup (mandatory for all users)
+    user.twoFactorSecret = twoFactorSecret;
+    user.twoFactorBackupCodes = backupCodes;
+    
     await user.save();
 
     // Send welcome email to the new user

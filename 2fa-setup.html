@@ -1,0 +1,103 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>V2 Financial Services - 2FA Setup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2563eb;
+            margin-bottom: 20px;
+        }
+        .qr-code {
+            margin: 20px 0;
+        }
+        .instructions {
+            text-align: left;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .backup-codes {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .backup-codes h3 {
+            color: #856404;
+            margin-top: 0;
+        }
+        .code {
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin: 2px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 V2 Financial Services - 2FA Setup</h1>
+        
+        <div class="instructions">
+            <h3>📱 Setup Instructions:</h3>
+            <ol>
+                <li>Open Google Authenticator on your phone</li>
+                <li>Tap the "+" button to add a new account</li>
+                <li>Choose "Scan a QR code"</li>
+                <li>Scan the QR code below</li>
+                <li>Enter the 6-digit code to verify setup</li>
+            </ol>
+        </div>
+        
+        <div class="qr-code">
+            <img src="data:image/png;base64,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" alt="2FA QR Code" style="max-width: 300px;">
+        </div>
+        
+        <div class="backup-codes">
+            <h3>🔑 Backup Codes (Save These Safely!)</h3>
+            <p>Use these codes if you lose access to your authenticator app:</p>
+            <div>
+                <span class="code">A284F1BC</span>
+                <span class="code">93D64F64</span>
+                <span class="code">390114B8</span>
+                <span class="code">CAA33CBD</span>
+                <span class="code">88B20A69</span>
+                <span class="code">D2E4189A</span>
+                <span class="code">54FD1C96</span>
+                <span class="code">D59753F0</span>
+                <span class="code">2F7D044F</span>
+                <span class="code">ABA8017E</span>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>⚠️ Important Notes:</h3>
+            <ul>
+                <li>2FA is currently <strong>DISABLED</strong> until you verify with a token</li>
+                <li>Save the backup codes in a secure location</li>
+                <li>Each backup code can only be used once</li>
+                <li>After scanning, test with the generated 6-digit code</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
